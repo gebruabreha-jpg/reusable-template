@@ -1,0 +1,101 @@
+
+# PCPB-24205
+# Configuration Logic, for easy understanding, go from leafs to root
+# Dnn_list allows you to apply the rules for a specific DNN, assuming the correct network-instance is mapped by a service
+# Port_list + ipv4/6 prefix list + ip_protocol list will give parts of the 5 tuple
+#  ( IP and Port and Protocol but not direction ) to match against.
+# Filters take port_list + ipv4/6 prefix list + ip_protocol and allow direction definition ( uplink and downlink )
+#  as well as APN/DNN matching. Filters bind to a single port_list , a single prefix_list and single protocol_list
+# Rules allow to decide what happens if parameters in the filter match the traffic, pass or drop traffic,
+# as well as report or not. They refer to a filter for match criteria.
+# Rules bind to a single filter.
+# A Rule-set is a collection of rules, effectively allowing multiple filters to be used, as well as deciding what to do
+# In case none of the rules match "what the default action should be"
+# A Profile allows selecting a  rule-set, which later is used in binding to a selector, which binds to a service, which binds to a network-instance.
+# This allows the firewall to apply filtering per network-instance
+# On top you have the subscriber_firewall that directly utilizes rule_sets
+# The minimum config exists of : enabled true, a rule-set with default action, a profile referring to the rule-set, a selector binding the profile and ip service together.
+up:
+  parameter:
+    pcfw2_subscriber_firewall:
+      firewall_state: "enabled"
+      # Set to disabled if you want to turn off the complete firewall, and configuration is already present
+      rule_sets: {"rule_set_1": { "drop_tcp_mid_flow": "enabled",
+                                  "grace_period": "20", "default_action": "pass",
+                                  "rule_ref": "rule_1"},
+                  "rule_set_2": { "default_action": "drop",
+                                 "rule_ref": "rule_2" }
+      }
+      # MANDATORY - without this the firewall does not know to pass or drop a packet
+      # Rule_set decides what is the default action the firewall should take if none of the rules match.
+      # It also sets mid_flow and grace_period , optional parameters, which play a role in geo-red and disturbance scenarios.
+      # rule_set allows a multiple rules, either directly defined or rule_ref allows multiple rules to reference them
+      rules : { "rule_1": { "state" : "enabled", "action": "pass",  "report": "true", "EIF": "true", "filter_used": "filter_1 "},
+                "rule_2": { "state" : "disabled", "action": "drop",  "report": "false", "EIF": "false", "filter_used": "filter_2"}
+      }
+      # OPTIONAL
+      # Rules bind filters with actions. A rule can be disabled. Action decides what the firewall will do based on
+      # data matched by filters. Reporting generates data for PERB.
+      # Optional Parameters "state" , "report". "EIF" : Endpoint Independent Filtering
+      ip_filter : { "filter_1": { "direction": "uplink","ip_protocol_list_used": "ip_protocol_list_1",
+      "icmp_type": "0", "icmp_code": "8", "af": "ipv4","source_prefix":"ipv4_prefix_list_1",
+      "destination_prefix": "ipv4_prefix_list_2","subscriber_info_dnn": "dnn_list_1","subscriber_info_nssai": "25-aabbcc"},
+                    "filter_2": { "direction": "downlink","ip_protocol_list_used": "ip_protocol_list_2",
+      "icmp_type": "0", "icmp_code": "8", "af": "ipv4","source_prefix": "ipv4_prefix_list_2",
+      "destination_prefix": "ipv4_prefix_list_1" },
+                    "filter_3": { "direction": "uplink","ip_protocol_list_used": "ip_protocol_list_1",
+                                  "af": "ipv6","source_prefix": "ipv6_prefix_list_1",
+                                  "destination_prefix": "ipv6_prefix_list_2", "subscriber_info_dnn": "dnn_list_2","subscriber_info_nssai": "50-ddeeff" },
+                    "filter_4": { "direction": "downlink","ip_protocol_list_used": "ip_protocol_list_2",
+                                  "af": "ipv6","source_prefix": "ipv6_prefix_list_2",
+                                  "destination_prefix": "ipv6_prefix_list_1" },
+      }
+      # OPTIONAL
+      #ip_filter : { "filter-1": { nested-dict with configuration parameters}, "filter-2": { nested-dict with configuration parameters, ...}  }
+      # This is the IP filter, that binds ip_protocol , prefix_list and port_list together
+      # It specifies uplink and downlink directions, along with ICMP filtering, IP family,
+      # Optional Parameters : icmp_type, icmp_code
+      # subscriber_info_dnn , subscriber_info_nssai : should only be specified in uplink direction
+      ip_protocol_list : { "ip_protocol_list_1": "TCP ICMP", "ip_protocol_list_2": "UDP ICMP" }
+      # OPTIONAL
+      # IP Protocol lists. These protocols will be matched by filters.
+      #Combine with port list and prefix list to apply by filters. K : ip_protocol_list name , V: Protocols to match.
+      # Protocol numbers in integer form can also be passed for less well known protocols
+      ipv4_prefix_list : { "ipv4_prefix_list_1": "10.0.0.0/8 11.0.0.0/8", "ipv4_prefix_list_2": "172.16.0.0/16 192.168.0.0/16" }
+      # OPTIONAL
+      # IPv4 prefix lists. These IPv4 addresses will be matched by filters.
+      # Combine with port list and protocol list to apply in filter. K : ipv6_prefix_list name , V : IPv4 address in CIDR
+      ipv6_prefix_list : { "ipv6_prefix_list_1": "2001::/64 2002::/64", "ipv6_prefix_list_2": "fc00::/8 fd00::/8" }
+      # OPTIONAL
+      # IPv6 prefix lists. These IPv6 addresses will be matched by filters.
+      # Combine with port list and protocol list to apply in filter. K : ipv4 prefix list name , V : ports
+      port_list : { "port_list_1": "80-8080 8443 3389 6112", "port_list_2": "80 443 17988 17990 6001-6112" }
+      # OPTIONAL
+      # Port List. These ports will be matched by filters.
+      # Combine with prefix_lists and protocol lists create filters. K : port list name, V : ports
+      profile_list : { "profile_1": "rule_set_1", "profile_2": "rule_set_2"}
+      # MANDATORY - without this, the firewall does not know which ruleset to apply to which profile
+      # A Profile specifies a rule-set. Selector uses the profile to bind to an IP service. The IP Service is bound to a Network instance.
+      # This allows the firewall to decide on which network-instance to enforce rules on
+      dnn_list : { "dnn_list_1": "dnn1", "dnn_list_2": "dnn2" }
+      # OPTIONAL
+      # A DNN is the 5G equivalent of an APN. UPF gets it via PFCP. By setting this, we allow the firewall, to apply to specific DNNs
+      # assuming the Profile matches the correct service, including the correct network-instance.
+      selector_list : { "selector_1": { "mapped_profile": "profile_1", "ip_service": "sgi1_ip_service" },
+                        "selector_2": { "mapped_profile": "profile_2", "ip_service": "media_ip_service" },
+      }
+      # MANDATORY - without this, the firewall does not know which profile to use and apply to which ip-service,
+      # without this, the firewall will not apply the rules on ANY network instance.
+      # A selector binds together a profile, which defines a rule-set, to an ip-service, which defines a network-instance.
+      # This is the glue, that connects firewall policies to network instances.
+      ip_service_list: {"sgi1_ip_service" : {"network_instance": "sgi1", "ip_pool": "sgi_pool"},
+                        "media_ip_service" : {"network_instance": "media", "ip_pool": "media_pool"},
+      }
+      # MANDATORY : IP service binds the network instance and IP pool to the firewall
+      # If the testcase already has Ao features, this may not be needed. In any case it is included here
+      # Without this, the firewall cannot be configured properly.
+template:
+  dynamic_cm_configuration_config:
+    dynamic_cm_pcfw2_cfg:
+      template: templates/tmp/dynamic_cm_pcfw2_config.template
+      output: sut_dynamic_cm_pcfw2_config.cfg
