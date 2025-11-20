@@ -1,0 +1,114 @@
+
+{% if up.parameter.pcfw2_subscriber_firewall.firewall_state is defined %}
+user-plane subscriber-firewall {{ up.parameter.pcfw2_subscriber_firewall.firewall_state }}
+{% endif %}
+{% if up.parameter.pcfw2_subscriber_firewall.rule_sets is defined %}
+{% for key, value in up.parameter.pcfw2_subscriber_firewall.rule_sets.items() %}
+user-plane subscriber-firewall rule-sets rule-set {{ key }}
+ {% if value.drop_tcp_mid_flow is defined %}
+ drop-tcp-mid-flow {{ value. drop_tcp_mid_flow }}
+ {% endif %}
+ {% if value.grace_period is defined %}
+ drop-tcp-mid-flow grace-period {{ value.grace_period }}
+ {% endif %}
+ default action {{ value.default_action }}
+ rules rule-ref [ {{ value.rule_ref}} ]
+!
+{% endfor %}
+{% endif %}
+{% if up.parameter.pcfw2_subscriber_firewall.rules is defined %}
+{% for key, value in up.parameter.pcfw2_subscriber_firewall.rules.items() %}
+user-plane subscriber-firewall rules rule {{ key }}
+ {{ value.state }}
+ action                      {{ value.action }}
+ {% if value.report is defined %}
+ report                      {{ value.report }}
+ {% endif %}
+ {% if value.EIF is defined %}
+ endpoint-independent-filter {{ value.EIF }}
+ {% endif %}
+ filter                      {{ value.filter_used }}
+!
+{% endfor %}
+{% endif %}
+{% if up.parameter.pcfw2_subscriber_firewall.ip_filter is defined %}
+{% for key, value in up.parameter.pcfw2_subscriber_firewall.ip_filter.items() %}
+user-plane subscriber-firewall filters filter {{ key }}
+ direction      {{ value.direction }}
+ ip-protocol-headers ip-protocol-list {{ value.ip_protocol_list_used }}
+ {% if value.icmp_type is defined %}
+ ip-protocol-headers icmp-type [ {{ value.icmp_type }} ]
+ {% endif %}
+ {% if value.icmp_code is defined %}
+ ip-protocol-headers icmp-code [ {{value.icmp_code}} ]
+ {% endif %}
+ address-family {{ value.af }}
+ source-prefix {{value.af}}-prefix-list {{value.source_prefix}}
+ destination-prefix {{value.af}}-prefix-list {{ value.destination_prefix }}
+ {% if value.subscriber_info_dnn is defined %}
+ subscriber-info dnn dnn-list {{ value.subscriber_info_dnn }}
+ {% endif %}
+ {% if value.subscriber_info_nssai is defined %}
+ subscriber-info s-nssai {{ value.subscriber_info_nssai }}
+ {% endif %}
+!
+{% endfor %}
+{% endif %}
+{% if up.parameter.pcfw2_subscriber_firewall.ip_protocol_list is defined %}
+{% for key, value in up.parameter.pcfw2_subscriber_firewall.ip_protocol_list.items() %}
+user-plane subscriber-firewall ip-protocol-lists ip-protocol-list {{ key }}
+ ip-protocol [ {{ value }} ]
+!
+{% endfor %}
+{% endif %}
+{% if up.parameter.pcfw2_subscriber_firewall.ipv4_prefix_list is defined %}
+{% for key, value in up.parameter.pcfw2_subscriber_firewall.ipv4_prefix_list.items() %}
+user-plane subscriber-firewall ipv4-prefix-lists ipv4-prefix-list {{ key }}
+ ipv4-prefixes [ {{ value }} ]
+!
+{% endfor %}
+{% endif %}
+{% if up.parameter.pcfw2_subscriber_firewall.ipv6_prefix_list is defined %}
+{% for key, value in up.parameter.pcfw2_subscriber_firewall.ipv6_prefix_list.items() %}
+user-plane subscriber-firewall ipv6-prefix-lists ipv6-prefix-list {{ key }}
+ ipv6-prefixes [ {{value}} ]
+!
+{% endfor %}
+{% endif %}
+{% if up.parameter.pcfw2_subscriber_firewall.port_list is defined %}
+{% for key, value in up.parameter.pcfw2_subscriber_firewall.port_list.items() %}
+user-plane subscriber-firewall port-lists port-list {{key}}
+ port [ {{value}} ]
+!
+{% endfor %}
+{% endif %}
+{% if up.parameter.pcfw2_subscriber_firewall.profile_list is defined %}
+{% for key, value in up.parameter.pcfw2_subscriber_firewall.profile_list.items() %}
+user-plane subscriber-firewall profiles profile {{ key }}
+ rule-set {{ value }}
+!
+{% endfor %}
+{% endif %}
+{% if up.parameter.pcfw2_subscriber_firewall.dnn_list is defined %}
+{% for key, value in up.parameter.pcfw2_subscriber_firewall.dnn_list.items() %}
+user-plane subscriber-firewall dnn-lists dnn-list {{ key }}
+ dnn [ {{ value }} ]
+!
+{% endfor %}
+{% endif %}
+{% if up.parameter.pcfw2_subscriber_firewall.selector_list is defined %}
+{% for key, value in up.parameter.pcfw2_subscriber_firewall.selector_list.items() %}
+user-plane subscriber-firewall selectors selector {{ key }}
+ profile {{ value.mapped_profile }}
+ ip-service [ {{ value.ip_service }} ]
+!
+{% endfor %}
+{% endif %}
+{% if up.parameter.pcfw2_subscriber_firewall.ip_service_list is defined %}
+{% for key, value in up.parameter.pcfw2_subscriber_firewall.ip_service_list.items() %}
+user-plane service data-network ip ip-services ip-service {{ key }}
+ network-instance {{ value.network_instance }}
+ ip-pool          [ {{ value.ip_pool}} ]
+!
+{% endfor %}
+{% endif %}
